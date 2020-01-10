@@ -42,5 +42,83 @@ class CustomPlayer(DataPlayer):
         # EXAMPLE: choose a random move without any search--this function MUST
         #          call self.queue.put(ACTION) at least once before time expires
         #          (the timer is automatically managed for you)
+        
+        action = self.mcts(state)
+        self.queue.put(action)
+    
+    
+    def mcts(self, gameState):
         import random
-        self.queue.put(random.choice(state.actions()))
+        if gameState.ply_count < 2:
+            return random.choice(gameState.actions())
+        else:
+            ###### iterative deepening ######
+            depth_limit = 5
+            best_move = None
+            for depth in range(1, depth_limit + 1):
+                best_move = self.alpha_beta(gameState, depth)
+            return best_move
+            
+    ###################################################
+    ###########  alpha beta pruning ###################
+    def alpha_beta(self, gameState, depth):
+
+        def min_value(gameState, alpha, beta, depth):
+            if gameState.terminal_test(): 
+                return gameState.utility(self.player_id)
+            
+            if depth <= 0: 
+                return self.score(gameState)
+            
+            value = float("inf")
+            for action in gameState.actions():
+                value = min(value, max_value(gameState.result(action), alpha, beta, depth - 1))
+                if value <= alpha:
+                    return value
+                else:
+                    beta = min(beta, value)
+                    
+            return value
+
+        def max_value(gameState, alpha, beta, depth):
+            if gameState.terminal_test(): 
+                return gameState.utility(self.player_id)
+            
+            if depth <= 0: 
+                return self.score(gameState)
+            
+            value = float("-inf")
+            for action in gameState.actions():
+                value = max(value, min_value(gameState.result(action), alpha, beta, depth - 1))
+                if value >= beta:
+                    return value
+                else:
+                    alpha = max(alpha, value)
+            return value
+
+        alpha = float("-inf")
+        beta  = float("+inf")
+        best_score = float("-inf")
+        best_move = None
+        for action in gameState.actions():
+            value = min_value(gameState.result(action), alpha, beta, depth - 1)
+            alpha = max(alpha, value)
+            if value > best_score:
+                best_score = value
+                best_move = action
+        return best_move
+
+    def score(self, gameState):
+        own_loc = gameState.locs[self.player_id]
+        opp_loc = gameState.locs[1 - self.player_id]
+        own_liberties = gameState.liberties(own_loc)
+        opp_liberties = gameState.liberties(opp_loc)
+        return len(own_liberties) - len(opp_liberties)
+    
+class HeuristicPlayer(CustomPlayer):
+    def score(self, gameState):
+        own_loc = gameState.locs[self.player_id]
+        opp_loc = gameState.locs[1 - self.player_id]
+        own_liberties = gameState.liberties(own_loc)
+        opp_liberties = gameState.liberties(opp_loc)
+        return len(own_liberties) - 2 * len(opp_liberties)
